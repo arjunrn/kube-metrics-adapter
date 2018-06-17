@@ -6,7 +6,7 @@ metadata:
     application: custom-metrics-consumer
 spec:
   rules:
-  - host: custom-metrics.teapot.zalan.do
+  - host: custom-metrics.example.org
     http:
       paths:
       - backend:
