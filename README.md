@@ -52,6 +52,9 @@ HPA resource, or via additional annotations on the HPA resource.
 
 ## Pod collector
 
+The pod collector allows collecting metrics from each pod matched by the HPA.
+Currently only `json-path` collection is supported.
+
 ### Supported metrics
 
 | Metric | Description | Type |
@@ -59,6 +62,9 @@ HPA resource, or via additional annotations on the HPA resource.
 | *custom* | No predefined metrics. Metrics are generated from user defined queries. | Pods |
 
 ### Example
+
+This is an example of using the pod collector to collect metrics from a json
+metrics endpoint of each pod matched by the HPA.
 
 ```yaml
 apiVersion: autoscaling/v2beta1
@@ -83,6 +89,29 @@ spec:
       metricName: requests-per-second
       targetAverageValue: 1k
 ```
+
+The pod collector is configured through the annotations which specify the
+collector name `json-path` and a set of configuration options for the
+collector. `json-key` defines the json-path query for extracting the right
+metric. This assumes the pod is exposing metrics in JSON format. For the above
+example the following JSON data would be expected:
+
+```json
+{
+  "http_server": {
+    "rps": 0.5
+  }
+}
+```
+
+The json-path query support depends on the
+[github.com/oliveagle/jsonpath](https://github.com/oliveagle/jsonpath) library.
+See the README for possible queries. It's expected that the metric you query
+returns something that can be turned into a `float64`.
+
+The other configuration options `path` and `port` specifies where the metrics
+endpoint is exposed on the pod. There's no default values, so they must be
+defined.
 
 ## Prometheus collector
 
