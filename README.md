@@ -4,7 +4,7 @@ Kube Metrics Adapter is a general purpose metrics adapter for Kubernetes that
 can collector and serve custom and external metrics for Horizontal Pod
 Autoscaling.
 
-It discoveres Horizontal Pod Autoscaling resources and starts to collect the
+It discovers Horizontal Pod Autoscaling resources and starts to collect the
 requested metrics and stores them in memory. It's implemented using the
 [custom-metrics-apiserver](https://github.com/kubernetes-incubator/custom-metrics-apiserver)
 library.
@@ -45,7 +45,7 @@ configures a *json-path pod collector*.
 Collectors are different implementations for getting metrics requested by an
 HPA resource. They are configured based on HPA resources and started by the
 `kube-metrics-adapter` on demand to only collect the metrics that are required
-in order to autoscale an application.
+in order to auto scale an application.
 
 The collectors are configured either simply based on the metrics defined in an
 HPA resource, or via additional annotations on the HPA resource.
@@ -115,11 +115,11 @@ defined.
 
 ## Prometheus collector
 
-The prometheus collector is a generic collector which can map prometheus
+The Prometheus collector is a generic collector which can map Prometheus
 queries to metrics that can be used for scaling. This approach is different
 from how it's done in the
 [k8s-prometheus-adapter](https://github.com/DirectXMan12/k8s-prometheus-adapter)
-where all available prometheus metrics are collected
+where all available Prometheus metrics are collected
 and transformed into metrics which the HPA can scale on, and there is no
 possibility to do custom queries.
 With the approach implemented here, users can define custom queries and only metrics
@@ -132,7 +132,7 @@ also not possible to restrict the available metrics using something like RBAC
 since any user would be able to create the metrics based on a custom query.
 
 I still believe custom queries are more useful, but it's good to be aware of
-the tradeoffs between the two approaches.
+the trade-offs between the two approaches.
 
 ### Supported metrics
 
@@ -142,7 +142,7 @@ the tradeoffs between the two approaches.
 
 ### Example
 
-This is an example of an HPA configured to get metrics based on a prometheus
+This is an example of an HPA configured to get metrics based on a Prometheus
 query. The query is defined in the annotation
 `metric-config.object.processed-events-per-second.prometheus/query` where
 `processed-events-per-second` is the metric name which will be associated with
@@ -189,7 +189,7 @@ The skipper collector is a simple wrapper around the Prometheus collector to
 make it easy to define an HPA for scaling based on ingress metrics when
 [skipper](https://github.com/zalando/skipper) is used as the ingress
 implementation in your cluster. It assumes you are collecting Prometheus
-metrics from skipper and it provides the correct prometheus queries out of the
+metrics from skipper and it provides the correct Prometheus queries out of the
 box so users don't have to define those manually.
 
 ### Supported metrics
@@ -272,7 +272,7 @@ spec:
       targetAverageValue: 30
 ```
 
-The matchLabels are used by `kube-metrics-adapter` to configure a collector
+The `matchLabels` are used by `kube-metrics-adapter` to configure a collector
 that will get the queue length for an SQS queue named `foobar` in region
 `eu-central-1`.
 
