@@ -1,7 +1,7 @@
 # kube-metrics-adapter
 
 Kube Metrics Adapter is a general purpose metrics adapter for Kubernetes that
-can collector and serve custom and external metrics for Horizontal Pod
+can collect and serve custom and external metrics for Horizontal Pod
 Autoscaling.
 
 It discovers Horizontal Pod Autoscaling resources and starts to collect the
@@ -26,7 +26,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: mypapp
+    name: myapp
   minReplicas: 1
   maxReplicas: 10
   metrics:
@@ -43,9 +43,8 @@ configures a *json-path pod collector*.
 ### Collectors
 
 Collectors are different implementations for getting metrics requested by an
-HPA resource. They are configured based on HPA resources and started by the
-`kube-metrics-adapter` on demand to only collect the metrics that are required
-in order to auto scale an application.
+HPA resource. They are configured based on HPA resources and started on-demand by the
+`kube-metrics-adapter` to only collect the metrics required for scaling the application.
 
 The collectors are configured either simply based on the metrics defined in an
 HPA resource, or via additional annotations on the HPA resource.
@@ -80,7 +79,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: mypapp
+    name: myapp
   minReplicas: 1
   maxReplicas: 10
   metrics:
