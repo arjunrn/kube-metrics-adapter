@@ -1,4 +1,5 @@
 # kube-metrics-adapter
+[![Build Status](https://travis-ci.com/mikkeloscar/kube-metrics-adapter.svg?branch=master)](https://travis-ci.com/mikkeloscar/kube-metrics-adapter)
 
 Kube Metrics Adapter is a general purpose metrics adapter for Kubernetes that
 can collect and serve custom and external metrics for Horizontal Pod
@@ -40,7 +41,24 @@ The `metric-config.*` annotations are used by the `kube-metrics-adapter` to
 configure a collector for getting the metrics. In the above example it
 configures a *json-path pod collector*.
 
-### Collectors
+## Building
+
+In order to build you first need to get the dependencies which are managed by
+[dep](https://github.com/golang/dep). Follow the
+[installation instructions](https://github.com/golang/dep#installation) to install it and then run
+the following:
+
+```sh
+$ dep ensure -vendor-only # install all dependencies
+```
+
+After dependencies are installed it can be built simply by running:
+
+```sh
+$ make
+```
+
+## Collectors
 
 Collectors are different implementations for getting metrics requested by an
 HPA resource. They are configured based on HPA resources and started on-demand by the
