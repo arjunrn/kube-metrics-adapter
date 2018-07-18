@@ -27,6 +27,7 @@ import (
 	"github.com/mikkeloscar/kube-metrics-adapter/pkg/collector"
 	"github.com/mikkeloscar/kube-metrics-adapter/pkg/provider"
 	"github.com/spf13/cobra"
+	"github.com/zalando-incubator/cluster-lifecycle-manager/pkg/credentials-loader/platformiam"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -39,6 +40,8 @@ func NewCommandStartAdapterServer(out, errOut io.Writer, stopCh <-chan struct{})
 		CustomMetricsAdapterServerOptions: baseOpts,
 		EnableCustomMetricsAPI:            true,
 		EnableExternalMetricsAPI:          true,
+		ZMONTokenName:                     "zmon",
+		CredentialsDir:                    "/meta/credentials",
 	}
 
 	cmd := &cobra.Command{
@@ -73,6 +76,12 @@ func NewCommandStartAdapterServer(out, errOut io.Writer, stopCh <-chan struct{})
 		"whether to enable External Metrics API")
 	flags.StringVar(&o.PrometheusServer, "prometheus-server", o.PrometheusServer, ""+
 		"url of prometheus server to query")
+	flags.StringVar(&o.ZMONKariosDBServer, "zmon-kariosdb-server", o.ZMONKariosDBServer, ""+
+		"url of ZMON KariosDB server to query for ZMON checks")
+	flags.StringVar(&o.ZMONTokenName, "zmon-token-name", o.ZMONTokenName, ""+
+		"name of the token used to query ZMON")
+	flags.StringVar(&o.CredentialsDir, "credentials-dir", o.CredentialsDir, ""+
+		"path to the credentials dir where tokens are stored")
 	flags.BoolVar(&o.SkipperIngressMetrics, "skipper-ingress-metrics", o.SkipperIngressMetrics, ""+
 		"whether to enable skipper ingress metrics")
 	flags.BoolVar(&o.AWSExternalMetrics, "aws-external-metrics", o.AWSExternalMetrics, ""+
@@ -132,18 +141,28 @@ func (o AdapterServerOptions) RunCustomMetricsAdapterServer(stopCh <-chan struct
 		}
 	}
 
+	if o.ZMONKariosDBServer != "" {
+		tokenSource := platformiam.NewTokenSource(o.ZMONTokenName, o.CredentialsDir)
+
+		zmonPlugin, err := collector.NewZMONCollectorPlugin(o.ZMONKariosDBServer, tokenSource)
+		if err != nil {
+			return fmt.Errorf("failed to initialize ZMON collector plugin: %v", err)
+		}
+
+		collectorFactory.RegisterExternalCollector([]string{collector.ZMONCheckMetric}, zmonPlugin)
+	}
+
 	// register generic pod collector
 	err = collectorFactory.RegisterPodsCollector("", collector.NewPodCollectorPlugin(client))
 	if err != nil {
-		return fmt.Errorf("failed to register skipper collector plugin: %v", err)
-	}
-
-	sess, err := session.NewSession()
-	if err != nil {
-		return fmt.Errorf("failed to register skipper collector plugin: %v", err)
+		return fmt.Errorf("failed to register pod collector plugin: %v", err)
 	}
 
 	if o.AWSExternalMetrics {
+		sess, err := session.NewSession()
+		if err != nil {
+			return fmt.Errorf("failed to setup AWS session: %v", err)
+		}
 		collectorFactory.RegisterExternalCollector([]string{collector.AWSSQSQueueLengthMetric}, collector.NewAWSCollectorPlugin(sess))
 	}
 
@@ -187,8 +206,15 @@ type AdapterServerOptions struct {
 	// EnableExternalMetricsAPI switches on sample apiserver for External Metrics API
 	EnableExternalMetricsAPI bool
 	// PrometheusServer enables prometheus queries to the specified
-	// server.
+	// server
 	PrometheusServer string
+	// ZMONKariosDBServer enables ZMON check queries to the specified
+	// kariosDB server
+	ZMONKariosDBServer string
+	// ZMONTokenName is the name of the token used to query ZMON
+	ZMONTokenName string
+	// CredentialsDir is the path to the dir where tokens are stored
+	CredentialsDir string
 	// SkipperIngressMetrics switches on support for skipper ingress based
 	// metric collection.
 	SkipperIngressMetrics bool

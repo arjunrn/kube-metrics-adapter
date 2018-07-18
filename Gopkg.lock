@@ -104,6 +104,12 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/dgrijalva/jwt-go"
+  packages = ["."]
+  revision = "06ea1031745cb8b3dab3f6a236daf2b0aa468b7e"
+  version = "v3.2.0"
+
+[[projects]]
   name = "github.com/elazarl/go-bindata-assetfs"
   packages = ["."]
   revision = "30f82fa23fd844bd5bb1e5f216db87fd77b5eb43"
@@ -359,6 +365,15 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/zalando-incubator/cluster-lifecycle-manager"
+  packages = [
+    "pkg/credentials-loader/jwt",
+    "pkg/credentials-loader/platformiam"
+  ]
+  revision = "193e2c05cd6c0cc29097af66605dc9ad2937a952"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
   revision = "8ac0e0d97ce45cd83d1d7243c060cb8461dda5e9"
@@ -368,6 +383,7 @@
   name = "golang.org/x/net"
   packages = [
     "context",
+    "context/ctxhttp",
     "http/httpguts",
     "http2",
     "http2/hpack",
@@ -377,6 +393,15 @@
     "websocket"
   ]
   revision = "1e491301e022f8f977054da4c2d852decd59571f"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/oauth2"
+  packages = [
+    ".",
+    "internal"
+  ]
+  revision = "ef147856a6ddbb60760db74283d2424e98c87bff"
 
 [[projects]]
   branch = "master"
@@ -414,6 +439,20 @@
   name = "golang.org/x/time"
   packages = ["rate"]
   revision = "fbb02b2291d28baffd63558aa44b4b56f178d650"
+
+[[projects]]
+  name = "google.golang.org/appengine"
+  packages = [
+    "internal",
+    "internal/base",
+    "internal/datastore",
+    "internal/log",
+    "internal/remote_api",
+    "internal/urlfetch",
+    "urlfetch"
+  ]
+  revision = "b1f26356af11148e710935ed1ac8a7f5702c7612"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -810,6 +849,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "93f23b17a32bdf74cf5c4e0ea33dc8765ca39361447cdf4e150c36653a90ba4d"
+  inputs-digest = "355625dd6ffe0e51fdd1eb9b9c01a8bb9d5c4984412764cb978b72a15563de11"
   solver-name = "gps-cdcl"
   solver-version = 1
