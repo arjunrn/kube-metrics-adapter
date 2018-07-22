@@ -32,6 +32,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+const (
+	defaultClientGOTimeout = 30 * time.Second
+)
+
 // NewCommandStartAdapterServer provides a CLI handler for 'start adapter server' command
 func NewCommandStartAdapterServer(out, errOut io.Writer, stopCh <-chan struct{}) *cobra.Command {
 	baseOpts := server.NewCustomMetricsAdapterServerOptions(out, errOut)
@@ -99,6 +103,8 @@ func (o AdapterServerOptions) RunCustomMetricsAdapterServer(stopCh <-chan struct
 	if err != nil {
 		return fmt.Errorf("unable to construct lister client config to initialize provider: %v", err)
 	}
+
+	clientConfig.Timeout = defaultClientGOTimeout
 
 	client, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
