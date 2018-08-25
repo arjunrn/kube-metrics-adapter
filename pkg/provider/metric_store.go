@@ -12,6 +12,7 @@ import (
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/metrics/pkg/apis/custom_metrics"
 	"k8s.io/metrics/pkg/apis/external_metrics"
 )
@@ -144,23 +145,23 @@ func hashLabelMap(labels map[string]string) string {
 
 // GetMetricsBySelector gets metric from the customMetricsStore using a label selector to
 // find metrics for matching resources.
-func (s *MetricStore) GetMetricsBySelector(metricName string, groupResource schema.GroupResource, namespace string, selector labels.Selector) *custom_metrics.MetricValueList {
+func (s *MetricStore) GetMetricsBySelector(namespace string, selector labels.Selector, info provider.CustomMetricInfo) *custom_metrics.MetricValueList {
 	matchedMetrics := make([]custom_metrics.MetricValue, 0)
 
 	s.RLock()
 	defer s.RUnlock()
 
-	metrics, ok := s.customMetricsStore[metricName]
+	metrics, ok := s.customMetricsStore[info.Metric]
 	if !ok {
 		return nil
 	}
 
-	group, ok := metrics[groupResource]
+	group, ok := metrics[info.GroupResource]
 	if !ok {
 		return nil
 	}
 
-	if namespace == "" {
+	if !info.Namespaced {
 		for _, metricMap := range group {
 			for _, metric := range metricMap {
 				if selector.Matches(labels.Set(metric.Labels)) {
@@ -179,31 +180,30 @@ func (s *MetricStore) GetMetricsBySelector(metricName string, groupResource sche
 	return &custom_metrics.MetricValueList{Items: matchedMetrics}
 }
 
-// GetMetricsByName looks up metrics in the customMetricsStore by resource name. If
-// namespace is "" if will look for the resource in all namespaces.
-func (s *MetricStore) GetMetricsByName(metricName string, groupResource schema.GroupResource, namespace, name string) *custom_metrics.MetricValue {
+// GetMetricsByName looks up metrics in the customMetricsStore by resource name.
+func (s *MetricStore) GetMetricsByName(name types.NamespacedName, info provider.CustomMetricInfo) *custom_metrics.MetricValue {
 	s.RLock()
 	defer s.RUnlock()
 
-	metrics, ok := s.customMetricsStore[metricName]
+	metrics, ok := s.customMetricsStore[info.Metric]
 	if !ok {
 		return nil
 	}
 
-	group, ok := metrics[groupResource]
+	group, ok := metrics[info.GroupResource]
 	if !ok {
 		return nil
 	}
 
-	if namespace == "" {
+	if !info.Namespaced {
 		// TODO: rethink no namespace queries
 		for _, metricMap := range group {
-			if metric, ok := metricMap[name]; ok {
+			if metric, ok := metricMap[name.Name]; ok {
 				return &metric.Value
 			}
 		}
-	} else if metricMap, ok := group[namespace]; ok {
-		if metric, ok := metricMap[name]; ok {
+	} else if metricMap, ok := group[name.Namespace]; ok {
+		if metric, ok := metricMap[name.Name]; ok {
 			return &metric.Value
 		}
 	}
@@ -236,13 +236,13 @@ func (s *MetricStore) ListAllMetrics() []provider.CustomMetricInfo {
 
 // GetExternalMetric gets external metric from the store by metric name and
 // selector.
-func (s *MetricStore) GetExternalMetric(namespace string, metricName string, selector labels.Selector) (*external_metrics.ExternalMetricValueList, error) {
+func (s *MetricStore) GetExternalMetric(namespace string, selector labels.Selector, info provider.ExternalMetricInfo) (*external_metrics.ExternalMetricValueList, error) {
 	matchedMetrics := make([]external_metrics.ExternalMetricValue, 0)
 
 	s.RLock()
 	defer s.RUnlock()
 
-	if metrics, ok := s.externalMetricsStore[metricName]; ok {
+	if metrics, ok := s.externalMetricsStore[info.Metric]; ok {
 		for _, metric := range metrics {
 			if selector.Matches(labels.Set(metric.Value.MetricLabels)) {
 				matchedMetrics = append(matchedMetrics, metric.Value)
@@ -260,14 +260,11 @@ func (s *MetricStore) ListAllExternalMetrics() []provider.ExternalMetricInfo {
 
 	metricsInfo := make([]provider.ExternalMetricInfo, 0, len(s.externalMetricsStore))
 
-	for metricName, metrics := range s.externalMetricsStore {
-		for _, metric := range metrics {
-			info := provider.ExternalMetricInfo{
-				Metric: metricName,
-				Labels: metric.Value.MetricLabels,
-			}
-			metricsInfo = append(metricsInfo, info)
+	for metricName := range s.externalMetricsStore {
+		info := provider.ExternalMetricInfo{
+			Metric: metricName,
 		}
+		metricsInfo = append(metricsInfo, info)
 	}
 	return metricsInfo
 }

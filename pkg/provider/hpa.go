@@ -12,7 +12,7 @@ import (
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/metrics/pkg/apis/custom_metrics"
 	"k8s.io/metrics/pkg/apis/external_metrics"
@@ -208,35 +208,19 @@ func (p *HPAProvider) collectMetrics(ctx context.Context) {
 	}
 }
 
-// GetRootScopedMetricByName returns metrics for a root scoped resource by
-// name.
-func (p *HPAProvider) GetRootScopedMetricByName(groupResource schema.GroupResource, name string, metricName string) (*custom_metrics.MetricValue, error) {
-	metric := p.metricStore.GetMetricsByName(metricName, groupResource, "", name)
+// GetMetricByName gets a single metric by name.
+func (p *HPAProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo) (*custom_metrics.MetricValue, error) {
+	metric := p.metricStore.GetMetricsByName(name, info)
 	if metric == nil {
-		return nil, provider.NewMetricNotFoundForError(groupResource, metricName, name)
+		return nil, provider.NewMetricNotFoundForError(info.GroupResource, info.Metric, name.Name)
 	}
 	return metric, nil
 }
 
-// GetRootScopedMetricBySelector returns metrics for root scoped resources by
+// GetMetricBySelector returns metrics for namespaced resources by
 // label selector.
-func (p *HPAProvider) GetRootScopedMetricBySelector(groupResource schema.GroupResource, selector labels.Selector, metricName string) (*custom_metrics.MetricValueList, error) {
-	return p.metricStore.GetMetricsBySelector(metricName, groupResource, "", selector), nil
-}
-
-// GetNamespacedMetricByName returns metrics for a namespaced resource by name.
-func (p *HPAProvider) GetNamespacedMetricByName(groupResource schema.GroupResource, namespace string, name string, metricName string) (*custom_metrics.MetricValue, error) {
-	metric := p.metricStore.GetMetricsByName(metricName, groupResource, namespace, name)
-	if metric == nil {
-		return nil, provider.NewMetricNotFoundForError(groupResource, metricName, name)
-	}
-	return metric, nil
-}
-
-// GetNamespacedMetricBySelector returns metrics for namespaced resources by
-// label selector.
-func (p *HPAProvider) GetNamespacedMetricBySelector(groupResource schema.GroupResource, namespace string, selector labels.Selector, metricName string) (*custom_metrics.MetricValueList, error) {
-	return p.metricStore.GetMetricsBySelector(metricName, groupResource, namespace, selector), nil
+func (p *HPAProvider) GetMetricBySelector(namespace string, selector labels.Selector, info provider.CustomMetricInfo) (*custom_metrics.MetricValueList, error) {
+	return p.metricStore.GetMetricsBySelector(namespace, selector, info), nil
 }
 
 // ListAllMetrics list all available metrics from the provicer.
@@ -244,8 +228,8 @@ func (p *HPAProvider) ListAllMetrics() []provider.CustomMetricInfo {
 	return p.metricStore.ListAllMetrics()
 }
 
-func (p *HPAProvider) GetExternalMetric(namespace string, metricName string, metricSelector labels.Selector) (*external_metrics.ExternalMetricValueList, error) {
-	return p.metricStore.GetExternalMetric(namespace, metricName, metricSelector)
+func (p *HPAProvider) GetExternalMetric(namespace string, metricSelector labels.Selector, info provider.ExternalMetricInfo) (*external_metrics.ExternalMetricValueList, error) {
+	return p.metricStore.GetExternalMetric(namespace, metricSelector, info)
 }
 
 func (p *HPAProvider) ListAllExternalMetrics() []provider.ExternalMetricInfo {

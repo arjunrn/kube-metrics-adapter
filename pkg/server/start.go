@@ -19,7 +19,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -27,6 +26,7 @@ import (
 	"github.com/mikkeloscar/kube-metrics-adapter/pkg/collector"
 	"github.com/mikkeloscar/kube-metrics-adapter/pkg/provider"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -37,8 +37,8 @@ const (
 )
 
 // NewCommandStartAdapterServer provides a CLI handler for 'start adapter server' command
-func NewCommandStartAdapterServer(out, errOut io.Writer, stopCh <-chan struct{}) *cobra.Command {
-	baseOpts := server.NewCustomMetricsAdapterServerOptions(out, errOut)
+func NewCommandStartAdapterServer(stopCh <-chan struct{}) *cobra.Command {
+	baseOpts := server.NewCustomMetricsAdapterServerOptions()
 	o := AdapterServerOptions{
 		CustomMetricsAdapterServerOptions: baseOpts,
 		EnableCustomMetricsAPI:            true,
@@ -175,8 +175,10 @@ func (o AdapterServerOptions) RunCustomMetricsAdapterServer(stopCh <-chan struct
 		externalMetricsProvider = nil
 	}
 
+	informer := informers.NewSharedInformerFactory(client, 0)
+
 	// In this example, the same provider implements both Custom Metrics API and External Metrics API
-	server, err := config.Complete().New("kube-metrics-adapter", customMetricsProvider, externalMetricsProvider)
+	server, err := config.Complete(informer).New("kube-metrics-adapter", customMetricsProvider, externalMetricsProvider)
 	if err != nil {
 		return err
 	}
