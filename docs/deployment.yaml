@@ -19,7 +19,7 @@ spec:
       annotations:
         iam.amazonaws.com/role: "kube-aws-test-1-app-zmon"
     spec:
-      serviceAccountName: system # zalando specific
+      serviceAccountName: custom-metrics-apiserver
       containers:
       - name: kube-metrics-adapter
         image: mikkeloscar/kube-metrics-adapter:latest
