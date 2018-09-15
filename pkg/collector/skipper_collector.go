@@ -34,39 +34,12 @@ func NewSkipperCollectorPlugin(client kubernetes.Interface, prometheusPlugin *Pr
 
 // NewCollector initializes a new skipper collector from the specified HPA.
 func (c *SkipperCollectorPlugin) NewCollector(hpa *autoscalingv2beta1.HorizontalPodAutoscaler, config *MetricConfig, interval time.Duration) (Collector, error) {
-	ingress, err := c.client.ExtensionsV1beta1().Ingresses(config.ObjectReference.Namespace).Get(config.ObjectReference.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	var collector Collector
-
 	switch config.Name {
 	case rpsMetricName:
-		collectors := make([]Collector, 0, len(ingress.Spec.Rules))
-		for _, rule := range ingress.Spec.Rules {
-			host := strings.Replace(rule.Host, ".", "_", -1)
-			config.Config["query"] = fmt.Sprintf(rpsQuery, host)
-			config.PerReplica = false // per replica is handled outside of the prometheus collector
-			collector, err := c.plugin.NewCollector(hpa, config, interval)
-			if err != nil {
-				return nil, err
-			}
-
-			collectors = append(collectors, collector)
-		}
-		if len(collectors) > 1 {
-			collector = NewMaxCollector(interval, collectors...)
-		} else if len(collectors) == 1 {
-			collector = collectors[0]
-		} else {
-			return nil, fmt.Errorf("no hosts defined on ingress %s/%s, unable to create collector", config.ObjectReference.Namespace, config.ObjectReference.Name)
-		}
+		return NewSkipperCollector(c.client, c.plugin, hpa, config, interval)
 	default:
 		return nil, fmt.Errorf("metric '%s' not supported", config.Name)
 	}
-
-	return NewSkipperCollector(c.client, collector, hpa, config, interval)
 }
 
 // SkipperCollector is a metrics collector for getting skipper ingress metrics.
@@ -77,24 +50,67 @@ type SkipperCollector struct {
 	objectReference custom_metrics.ObjectReference
 	hpa             *autoscalingv2beta1.HorizontalPodAutoscaler
 	interval        time.Duration
-	collector       Collector
+	plugin          CollectorPlugin
+	config          MetricConfig
 }
 
 // NewSkipperCollector initializes a new SkipperCollector.
-func NewSkipperCollector(client kubernetes.Interface, collector Collector, hpa *autoscalingv2beta1.HorizontalPodAutoscaler, config *MetricConfig, interval time.Duration) (*SkipperCollector, error) {
+func NewSkipperCollector(client kubernetes.Interface, plugin CollectorPlugin, hpa *autoscalingv2beta1.HorizontalPodAutoscaler, config *MetricConfig, interval time.Duration) (*SkipperCollector, error) {
 	return &SkipperCollector{
 		client:          client,
 		objectReference: config.ObjectReference,
 		hpa:             hpa,
 		metricName:      config.Name,
 		interval:        interval,
-		collector:       collector,
+		plugin:          plugin,
+		config:          *config,
 	}, nil
+}
+
+// getCollector returns a collector for getting the metrics.
+func (c *SkipperCollector) getCollector() (Collector, error) {
+	ingress, err := c.client.ExtensionsV1beta1().Ingresses(c.objectReference.Namespace).Get(c.objectReference.Name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	config := c.config
+
+	var collector Collector
+	collectors := make([]Collector, 0, len(ingress.Spec.Rules))
+	for _, rule := range ingress.Spec.Rules {
+		host := strings.Replace(rule.Host, ".", "_", -1)
+		config.Config = map[string]string{
+			"query": fmt.Sprintf(rpsQuery, host),
+		}
+
+		config.PerReplica = false // per replica is handled outside of the prometheus collector
+		collector, err := c.plugin.NewCollector(c.hpa, &config, c.interval)
+		if err != nil {
+			return nil, err
+		}
+
+		collectors = append(collectors, collector)
+	}
+	if len(collectors) > 1 {
+		collector = NewMaxCollector(c.interval, collectors...)
+	} else if len(collectors) == 1 {
+		collector = collectors[0]
+	} else {
+		return nil, fmt.Errorf("no hosts defined on ingress %s/%s, unable to create collector", c.objectReference.Namespace, c.objectReference.Name)
+	}
+
+	return collector, nil
 }
 
 // GetMetrics gets skipper metrics from prometheus.
 func (c *SkipperCollector) GetMetrics() ([]CollectedMetric, error) {
-	values, err := c.collector.GetMetrics()
+	collector, err := c.getCollector()
+	if err != nil {
+		return nil, err
+	}
+
+	values, err := collector.GetMetrics()
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +126,10 @@ func (c *SkipperCollector) GetMetrics() ([]CollectedMetric, error) {
 	replicas, err := targetRefReplicas(c.client, c.hpa)
 	if err != nil {
 		return nil, err
+	}
+
+	if replicas < 1 {
+		return nil, fmt.Errorf("unable to get average value for %d replicas", replicas)
 	}
 
 	value := values[0]
