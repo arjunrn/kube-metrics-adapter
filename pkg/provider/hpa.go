@@ -92,6 +92,7 @@ func (p *HPAProvider) updateHPAs() error {
 	newHPAs := 0
 
 	for _, hpa := range hpas.Items {
+		hpa := hpa
 		resourceRef := resourceReference{
 			Name:      hpa.Name,
 			Namespace: hpa.Namespace,
