@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -81,6 +82,7 @@ func NewCommandStartAdapterServer(stopCh <-chan struct{}) *cobra.Command {
 		"whether to enable skipper ingress metrics")
 	flags.BoolVar(&o.AWSExternalMetrics, "aws-external-metrics", o.AWSExternalMetrics, ""+
 		"whether to enable AWS external metrics")
+	flags.StringSliceVar(&o.AWSRegions, "aws-region", o.AWSRegions, "the AWS regions which should be monitored. eg: eu-central, eu-west-1")
 
 	return cmd
 }
@@ -144,13 +146,16 @@ func (o AdapterServerOptions) RunCustomMetricsAdapterServer(stopCh <-chan struct
 		return fmt.Errorf("failed to register skipper collector plugin: %v", err)
 	}
 
-	sess, err := session.NewSession()
-	if err != nil {
-		return fmt.Errorf("failed to register skipper collector plugin: %v", err)
+	awsSessions := make(map[string]*session.Session, len(o.AWSRegions))
+	for _, region := range o.AWSRegions {
+		awsSessions[region], err = session.NewSession(&aws.Config{Region: aws.String(region)})
+		if err != nil {
+			return fmt.Errorf("unabled to create aws session for region: %s", region)
+		}
 	}
 
 	if o.AWSExternalMetrics {
-		collectorFactory.RegisterExternalCollector([]string{collector.AWSSQSQueueLengthMetric}, collector.NewAWSCollectorPlugin(sess))
+		collectorFactory.RegisterExternalCollector([]string{collector.AWSSQSQueueLengthMetric}, collector.NewAWSCollectorPlugin(awsSessions))
 	}
 
 	hpaProvider := provider.NewHPAProvider(client, 30*time.Second, 1*time.Minute, collectorFactory)
@@ -203,4 +208,6 @@ type AdapterServerOptions struct {
 	// AWSExternalMetrics switches on support for getting external metrics
 	// from AWS.
 	AWSExternalMetrics bool
+	// AWSRegions the AWS regions which are supported for monitoring.
+	AWSRegions []string
 }

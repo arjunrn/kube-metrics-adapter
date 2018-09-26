@@ -18,15 +18,16 @@ import (
 const (
 	AWSSQSQueueLengthMetric = "sqs-queue-length"
 	sqsQueueNameLabelKey    = "queue-name"
+	sqsQueueRegionLabelKey  = "region"
 )
 
 type AWSCollectorPlugin struct {
-	session *session.Session
+	sessions map[string]*session.Session
 }
 
-func NewAWSCollectorPlugin(session *session.Session) *AWSCollectorPlugin {
+func NewAWSCollectorPlugin(sessions map[string]*session.Session) *AWSCollectorPlugin {
 	return &AWSCollectorPlugin{
-		session: session,
+		sessions: sessions,
 	}
 }
 
@@ -34,16 +35,16 @@ func NewAWSCollectorPlugin(session *session.Session) *AWSCollectorPlugin {
 func (c *AWSCollectorPlugin) NewCollector(hpa *autoscalingv2beta1.HorizontalPodAutoscaler, config *MetricConfig, interval time.Duration) (Collector, error) {
 	switch config.Name {
 	case AWSSQSQueueLengthMetric:
-		return NewAWSSQSCollector(c.session, config, interval)
+		return NewAWSSQSCollector(c.sessions, config, interval)
 	}
 
 	return nil, fmt.Errorf("metric '%s' not supported", config.Name)
 }
 
 type AWSSQSCollector struct {
-	sqs      sqsiface.SQSAPI
-	interval time.Duration
-	// region string
+	sqs        sqsiface.SQSAPI
+	interval   time.Duration
+	region     string
 	queueURL   string
 	queueName  string
 	labels     map[string]string
@@ -51,14 +52,23 @@ type AWSSQSCollector struct {
 	metricType autoscalingv2beta1.MetricSourceType
 }
 
-func NewAWSSQSCollector(session *session.Session, config *MetricConfig, interval time.Duration) (*AWSSQSCollector, error) {
-	service := sqs.New(session)
+func NewAWSSQSCollector(sessions map[string]*session.Session, config *MetricConfig, interval time.Duration) (*AWSSQSCollector, error) {
 
 	name, ok := config.Labels[sqsQueueNameLabelKey]
 	if !ok {
 		return nil, fmt.Errorf("sqs queue name not specified on metric")
 	}
+	region, ok := config.Labels[sqsQueueRegionLabelKey]
+	if !ok {
+		return nil, fmt.Errorf("sqs queue region is not specified on metric")
+	}
 
+	session, ok := sessions[region]
+	if !ok {
+		return nil, fmt.Errorf("the metric region: %s is not configured", region)
+	}
+
+	service := sqs.New(session)
 	params := &sqs.GetQueueUrlInput{
 		QueueName: aws.String(name),
 	}
@@ -69,7 +79,7 @@ func NewAWSSQSCollector(session *session.Session, config *MetricConfig, interval
 	}
 
 	return &AWSSQSCollector{
-		sqs:        sqs.New(session),
+		sqs:        service,
 		interval:   interval,
 		queueURL:   aws.StringValue(resp.QueueUrl),
 		queueName:  name,
